@@ -14,11 +14,12 @@ class Io:
         self.ino = 0
         self.ofs = []
 
-    def add_io(self, dev, ino, ofs):
+    def add_io(self, dev, ino, off):
         self.dev = dev
         self.ino = ino
+        ofs = int(off)
         if not ofs in self.ofs:
-            bisect.insort(self.ofs, int(ofs))
+            bisect.insort(self.ofs, ofs)
 
     def dump(self):
         print("dev ({0}), ino ({1}) - offset:".format(self.dev, self.ino))
