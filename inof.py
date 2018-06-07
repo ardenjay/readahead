@@ -5,47 +5,44 @@
 
 #import adb
 import re
-
-data = r'     logd-236   [000] ....    15.154805: mm_filemap_add_to_page_cache: dev 179:35 ino 6db page=f76e7ac0 pfn=321622 ofs=348160'
+import sys
+import bisect
 
 class Io:
-    dev = 0
-    ino = 0
-    ofs = []
+    def __init__(self):
+        self.dev = 0
+        self.ino = 0
+        self.ofs = []
 
-    def __init__(self, dev, ino, off):
+    def add_io(self, dev, ino, ofs):
         self.dev = dev
         self.ino = ino
-        self.ofs.append(off)
+        if not ofs in self.ofs:
+            bisect.insort(self.ofs, int(ofs))
 
     def dump(self):
-        print("dev ({0}), ino ({1}) - ".format(self.dev, self.ino))
+        print("dev ({0}), ino ({1}) - offset:".format(self.dev, self.ino))
         for i in self.ofs:
-            print "offset: " + i
+            print i,
+        print "\n"
 
 class PgParser:
     def __init__(self):
         self.pid = 0
-        self.parser = {}  # k: pid, v: [] of PgParser
-        self.files  = {}  # k: ino, v: [] of file ofs
+        self.files = {}  # k: ino, v: [] of file ofs
 
     def process(self, pid, dev, ino, off):
-        print ("ADD PID: {0} dev({1}) {2}:{3}".format(pid, dev, ino, off))
         self.pid = pid
-        f = Io(dev, ino, off)
-        if not f.ino in self.files:
+        if ino in self.files:
+            f = self.files[ino]
+            f.add_io(dev, ino, off)
+        else:
+            f = Io()
+            f.add_io(dev, ino, off)
             self.files[ino] = f
 
-    def insert(self):
-        if not self.pid in self.parser:
-            self.parser[self.pid] = self
-
-    def dump(self):
-        for p in self.parser:
-            parser_obj = self.parser[p]
-            print ("dump for {0}:".format(parser_obj.pid))
-            for f in parser_obj.files:
-                parser_obj.files[f].dump();
+class FilePg:
+    parser = {}  # k: pid, v: [] of PgParser
 
     def parse(self, line):
         RE_PID = r'.+-([0-9]+)'
@@ -63,18 +60,36 @@ class PgParser:
             return False
 
         try:
-            name = match_obj.group(1)
-            dev  = match_obj.group(2)
-            ino  = match_obj.group(3)
-            off  = match_obj.group(4)
+            pid = match_obj.group(1)
+            dev = match_obj.group(2)
+            ino = match_obj.group(3)
+            off = match_obj.group(4)
         except Exception, e:
             print "Error while re parse: " + str(e)
             return False
         else:
-            self.process(name, dev, ino, off)
-            self.insert()
+            if pid in self.parser:
+                p = self.parser[pid]
+                p.process(pid, dev, ino, off)
+            else:
+                p = PgParser()
+                p.process(pid, dev, ino, off)
+                self.parser[pid] = p
 
-def main():
+    def dump(self):
+        for p in self.parser:
+            parser_obj = self.parser[p]
+            print ("dump for {0}:".format(parser_obj.pid))
+            for f in parser_obj.files:
+                parser_obj.files[f].dump();
+
+def main(argv):
+    if (len(argv) < 2):
+	print "inof.py filename"
+        return
+
+    filename = argv[1]
+
     '''
     device = adb.get_device()
     if device is None:
@@ -82,10 +97,12 @@ def main():
 
     output, _ = device.shell(['/data/inof.sh'])
     '''
+    parser = FilePg()
 
-    parser = PgParser()
-    parser.parse(data)
+    with open(filename) as f:
+        for l in f:
+            parser.parse(l)
     parser.dump()
 
 if __name__ == "__main__":
-    main()
+    main(sys.argv)
