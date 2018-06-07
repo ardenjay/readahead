@@ -29,10 +29,12 @@ class Io:
 class PgParser:
     def __init__(self):
         self.pid = 0
+        self.dev = 0
+        self.ino = 0
+        self.off = 0
         self.files = {}  # k: ino, v: [] of file ofs
 
     def process(self, pid, dev, ino, off):
-        self.pid = pid
         if ino in self.files:
             f = self.files[ino]
             f.add_io(dev, ino, off)
@@ -40,9 +42,6 @@ class PgParser:
             f = Io()
             f.add_io(dev, ino, off)
             self.files[ino] = f
-
-class FilePg:
-    parser = {}  # k: pid, v: [] of PgParser
 
     def parse(self, line):
         RE_PID = r'.+-([0-9]+)'
@@ -60,21 +59,33 @@ class FilePg:
             return False
 
         try:
-            pid = match_obj.group(1)
-            dev = match_obj.group(2)
-            ino = match_obj.group(3)
-            off = match_obj.group(4)
+            self.pid = match_obj.group(1)
+            self.dev = match_obj.group(2)
+            self.ino = match_obj.group(3)
+            self.off = match_obj.group(4)
         except Exception, e:
             print "Error while re parse: " + str(e)
             return False
-        else:
-            if pid in self.parser:
-                p = self.parser[pid]
-                p.process(pid, dev, ino, off)
+
+        return True
+
+class FilePg:
+    parser = {}  # k: pid, v: [] of PgParser
+
+    def parse(self, line):
+        p = PgParser()
+        res = p.parse(line)                     # begin parse the line
+        if (res == True):
+            pid = p.pid
+            dev = p.dev
+            ino = p.ino
+            off = p.off
+            if pid in self.parser:              # get the stored parser
+                pgp = self.parser[pid]
+                pgp.process(pid, dev, ino, off)
             else:
-                p = PgParser()
-                p.process(pid, dev, ino, off)
-                self.parser[pid] = p
+                p.process(pid, dev, ino, off)   # new parser
+                self.parser[pid] = p            # stored the parser
 
     def dump(self):
         for p in self.parser:
