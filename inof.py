@@ -8,21 +8,30 @@ import re
 import sys
 import bisect
 
+SYSTEM_DEV = r'179:35'
+DEVICE_MAPPING = {SYSTEM_DEV : r'/system'}
+
 class Io:
     def __init__(self):
         self.dev = 0
         self.ino = 0
         self.ofs = []
+        self.part = ""
 
     def add_io(self, dev, ino, off):
         self.dev = dev
+        if self.dev in DEVICE_MAPPING:
+            self.part = DEVICE_MAPPING[self.dev]
         self.ino = ino
         ofs = int(off)
         if not ofs in self.ofs:
             bisect.insort(self.ofs, ofs)
 
     def dump(self):
-        print("dev ({0}), ino ({1}) - offset:".format(self.dev, self.ino))
+        if self.part == "":
+            print("dev ({0}), ino ({1}) - offset:".format(self.dev, self.ino))
+        else:
+            print("{0}, ino ({1}) - offset:".format(self.part, self.ino))
         for i in self.ofs:
             print i,
         print "\n"
@@ -70,6 +79,12 @@ class PgParser:
 
         return True
 
+    def dump(self):
+        print ("dump for {0}:".format(self.pid))
+        for f in self.files:
+            io = self.files[f]
+            io.dump()
+
 class FilePg:
     parser = {}  # k: pid, v: [] of PgParser
 
@@ -90,10 +105,7 @@ class FilePg:
 
     def dump(self):
         for p in self.parser:
-            parser_obj = self.parser[p]
-            print ("dump for {0}:".format(parser_obj.pid))
-            for f in parser_obj.files:
-                parser_obj.files[f].dump();
+            self.parser[p].dump()
 
 def main(argv):
     if (len(argv) < 2):
