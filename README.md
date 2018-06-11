@@ -6,7 +6,7 @@ One of the boot process is to load data from external storage to memory. This ch
 
 Overall process:
 
-                                     turn on trace event
+                             trace_event=mm_filemap_add_to_page_cache
                                             +
                                             |
                                             |
