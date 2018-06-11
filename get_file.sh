@@ -1,2 +1,2 @@
-cd /system
-find . -inum 503 -print
+cd $1
+find . -inum $2 -print

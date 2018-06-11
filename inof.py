@@ -3,7 +3,7 @@
 # Copyright (C) 2018 Jay Tu
 #
 
-#import adb
+import adb
 import re
 import sys
 import bisect
@@ -12,26 +12,43 @@ SYSTEM_DEV = r'179:35'
 DEVICE_MAPPING = {SYSTEM_DEV : r'/system'}
 
 class Io:
-    def __init__(self):
+    def __init__(self, dev):
         self.dev = 0
         self.ino = 0
         self.ofs = []
         self.part = ""
+        self.device = dev
+        self.file_name = ""
+
+    def get_file_name(self):
+        if not self.part:
+            return
+
+        path = self.part
+        ino_hex = int(self.ino, 16)      # ino is the hex string
+        s_ino_hex = hex(ino_hex)
+        output, _ = self.device.shell(['/data/get_file.sh', path, s_ino_hex])
+        if output:
+            self.file_name = output.rstrip()
 
     def add_io(self, dev, ino, off):
         self.dev = dev
         if self.dev in DEVICE_MAPPING:
             self.part = DEVICE_MAPPING[self.dev]
-        self.ino = ino
+
+        if self.part:
+            self.ino = ino
+            self.get_file_name()
+
         ofs = int(off)
         if not ofs in self.ofs:
             bisect.insort(self.ofs, ofs)
 
     def dump(self):
-        if self.part == "":
+        if not self.part:
             print("dev ({0}), ino ({1}) - offset:".format(self.dev, self.ino))
         else:
-            print("{0}, ino ({1}) - offset:".format(self.part, self.ino))
+            print("{0}, file: {1} - offset:".format(self.part, self.file_name))
         for i in self.ofs:
             print i,
         print "\n"
@@ -41,15 +58,21 @@ class PgParser:
         self.pid = 0
         self.dev = 0
         self.ino = 0
+        self.file_name = ""
         self.off = 0
         self.files = {}  # k: ino, v: [] of file ofs
+
+        self.device = adb.get_device()
+        if self.device is None:
+            print "device is None"
+            return False
 
     def process(self, pid, dev, ino, off):
         if ino in self.files:
             f = self.files[ino]
             f.add_io(dev, ino, off)
         else:
-            f = Io()
+            f = Io(self.device)
             f.add_io(dev, ino, off)
             self.files[ino] = f
 
@@ -114,18 +137,16 @@ def main(argv):
 
     filename = argv[1]
 
-    '''
-    device = adb.get_device()
-    if device is None:
-        sys.exit("ERROR: Failed to find device.")
-
-    output, _ = device.shell(['/data/inof.sh'])
-    '''
     parser = FilePg()
 
     with open(filename) as f:
+        lineno = 0
         for l in f:
             parser.parse(l)
+            print 'Parsed {0} lines\r'.format(lineno),
+            sys.stdout.flush()
+            lineno += 1
+
     parser.dump()
 
 if __name__ == "__main__":
