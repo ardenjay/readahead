@@ -1,0 +1,4 @@
+PATH: /system/lib/libc.so
+OFFSET: 131072, 135168
+PATH: /system/lib/abc.so
+OFFSET: 131072, 135168, 1234
