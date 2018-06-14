@@ -1,6 +1,6 @@
-PATH: /system/lib/libc.so
+PATH:/system/lib/libc.so
 SIZE:2
 OFFSET: 131072, 135168
-PATH: /system/lib/abc.so
+PATH:/system/lib/abc.so
 SIZE:3
 OFFSET: 131072, 135168, 1234
