@@ -13,7 +13,7 @@ Overall process:
                                             |
                                  +----------v----------+
                                  |                     |
-                                 |    Target Device    |
+                                 |        Ftrace       |
                                  |                     |
                                  +----------+----------+
                                             |
