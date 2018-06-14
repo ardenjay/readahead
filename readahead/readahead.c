@@ -24,20 +24,12 @@ void make_request_path(struct readahead_request* request, char* path)
 void make_request_off(struct readahead_request* request, char* ofs)
 {
 	char *token = strdup(ofs);
-	int nr_token = 0;
 	off64_t value = 0;
 	int i = 0;
 
-	token = strtok(token, ",");
-	while (token != NULL) {
-		token = strtok(NULL, ",");
-		nr_token++;
-	}
-	request->size = nr_token;
-
 	if (request->offset)
 		free(request->offset);
-	request->offset = malloc(sizeof(off64_t) * nr_token);
+	request->offset = malloc(sizeof(off64_t) * request->size);
 
 	token = strdup(ofs);
 	i = 0;
@@ -55,6 +47,7 @@ void dump(struct readahead_request* request)
 
 	printf("dump:");
 	printf("PATH - %s\n", request->path);
+	printf("Num: %d\n", request->size);
 	for (i = 0; i < request->size; i++)
 		printf("%ld ", request->offset[i]);
 	printf("\n");
@@ -66,6 +59,7 @@ int main(int argc, char **argv)
 	size_t len = 0;
 	ssize_t read;
 	FILE* fp;
+	int i = 0;
 	struct readahead_request* request = malloc(sizeof(struct readahead_request));
 
 	fp = fopen("readahead_list", "r");
@@ -82,12 +76,16 @@ int main(int argc, char **argv)
 		if (strcmp(token, "PATH") == 0) {
 			token = strtok(NULL, ":");
 			make_request_path(request, token);
+		} else if (strcmp(token, "SIZE") == 0) {
+			token = strtok(NULL, ":");
+			request->size = atol(token);
 		} else if (strcmp(token, "OFFSET") == 0) {
 			token = strtok(NULL, ":");
 			make_request_off(request, token);
 		}
 
-		dump(request);
+		if ((++i % 3) == 0)
+			dump(request);
 	}
 
 	fclose(fp);
