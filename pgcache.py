@@ -9,7 +9,8 @@ import sys
 import bisect
 
 SYSTEM_DEV = r'179:35'
-DEVICE_MAPPING = {SYSTEM_DEV : r'/system'}
+DEVICE_MAPPING = {SYSTEM_DEV: r'/system'}
+
 
 class Io:
     def __init__(self, dev):
@@ -41,7 +42,7 @@ class Io:
             self.get_file_name()
 
         ofs = int(off)
-        if not ofs in self.ofs:
+        if ofs not in self.ofs:
             bisect.insort(self.ofs, ofs)
 
     def dump(self):
@@ -52,6 +53,7 @@ class Io:
         for i in self.ofs:
             print i,
         print "\n"
+
 
 class PgParser:
     def __init__(self):
@@ -81,7 +83,8 @@ class PgParser:
         INO = r'ino ([0-9a-z]+)'
         OFF = r'ofs=([0-9]+)'
 
-        RE = RE_PID + SPACE + WILD_CHAR + KEY_WORD + DEV + SPACE + INO + WILD_CHAR + OFF
+        RE = RE_PID + SPACE + WILD_CHAR + KEY_WORD + DEV + \
+            SPACE + INO + WILD_CHAR + OFF
         re_obj = re.compile(RE)
         match_obj = re_obj.match(line)
         if match_obj is None:
@@ -104,13 +107,14 @@ class PgParser:
             io = self.files[f]
             io.dump()
 
+
 class FilePg:
     parser = {}  # k: pid, v: [] of PgParser
 
     def parse(self, line):
         p = PgParser()
         res = p.parse(line)                     # begin parse the line
-        if (res == True):
+        if res:
             pid = p.pid
             dev = p.dev
             ino = p.ino
@@ -126,9 +130,10 @@ class FilePg:
         for p in self.parser:
             self.parser[p].dump()
 
+
 def main(argv):
     if (len(argv) < 2):
-	print "inof.py filename"
+        print "pgcache.py filename"
         return
 
     filename = argv[1]
@@ -144,6 +149,7 @@ def main(argv):
             lineno += 1
 
     parser.dump()
+
 
 if __name__ == "__main__":
     main(sys.argv)
