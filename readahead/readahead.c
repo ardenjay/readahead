@@ -11,7 +11,7 @@ struct readahead_request {
 	off64_t* offset;
 };
 
-void make_request_path(struct readahead_request* request, char* path)
+void build_request_path(struct readahead_request* request, char* path)
 {
 	size_t len = 0;
 
@@ -24,7 +24,7 @@ void make_request_path(struct readahead_request* request, char* path)
 	strcpy(request->path, path);
 }
 
-void make_request_off(struct readahead_request* request, char* ofs)
+void build_request_off(struct readahead_request* request, char* ofs)
 {
 	char *token = strdup(ofs);
 	off64_t value = 0;
@@ -109,13 +109,13 @@ int main(int argc, char **argv)
 
 		if (strcmp(token, "PATH") == 0) {
 			token = strtok(NULL, ":");
-			make_request_path(request, token);
+			build_request_path(request, token);
 		} else if (strcmp(token, "SIZE") == 0) {
 			token = strtok(NULL, ":");
 			request->size = atol(token);
 		} else if (strcmp(token, "OFFSET") == 0) {
 			token = strtok(NULL, ":");
-			make_request_off(request, token);
+			build_request_off(request, token);
 		}
 
 		if ((++i % 3) == 0) {
