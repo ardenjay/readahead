@@ -61,11 +61,7 @@ class PgParser:
         self.file_name = ""
         self.off = 0
         self.files = {}  # k: ino, v: [] of file ofs
-
         self.device = adb.get_device()
-        if self.device is None:
-            print "device is None"
-            return False
 
     def process(self, pid, dev, ino, off):
         if ino in self.files:
