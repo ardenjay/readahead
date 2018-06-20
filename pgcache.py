@@ -7,6 +7,7 @@ import adb
 import re
 import sys
 import bisect
+import argparse
 
 SYSTEM_DEV = r'179:35'
 DEVICE_MAPPING = {SYSTEM_DEV: r'/system'}
@@ -130,13 +131,23 @@ class FilePg:
         for p in self.parser:
             self.parser[p].dump()
 
+    def out(self, outfile):
+        print outfile
+
+
+def process_cmdline():
+    argp = argparse.ArgumentParser(description="page cache parser")
+    argp.add_argument('--file', dest='filename',
+            help='the page cache file that ftrace output')
+    argp.add_argument('--output', dest='outfile',
+            help='output the parser result to file')
+    return argp.parse_args()
+
 
 def main(argv):
-    if (len(argv) < 2):
-        print "pgcache.py filename"
-        return
+    argp = process_cmdline()
 
-    filename = argv[1]
+    filename = argp.filename
 
     parser = FilePg()
 
@@ -147,8 +158,12 @@ def main(argv):
             print 'Parsed {0} lines\r'.format(lineno),
             sys.stdout.flush()
             lineno += 1
+    print 'Done............................................'
 
     parser.dump()
+
+    if argp.outfile:
+        parser.out(argp.outfile)
 
 
 if __name__ == "__main__":
