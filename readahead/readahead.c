@@ -11,17 +11,24 @@ struct readahead_request {
 	off64_t* offset;
 };
 
-void build_request_path(struct readahead_request* request, char* path)
+int make_request(struct readahead_request* request)
 {
-	size_t len = 0;
+	int fd, i;
+	ssize_t ret;
 
-	len = strlen(path);
-	if (request->path) {
-		free(request->path);
-		request->path = NULL;
+	fd = open(request->path, O_RDONLY);
+	if (fd < 0) {
+		printf("open %s: %s\n", request->path, strerror(errno));
+		goto fail;
 	}
-	request->path = malloc(len);
-	strcpy(request->path, path);
+
+	for (i = 0; i < request->size; i++) {
+		ret = readahead(fd, request->offset[i], 1);
+		if (ret)
+			printf("%s fails: %s\n", __func__, strerror(errno));
+	}
+fail:
+	return -1;
 }
 
 void build_request_off(struct readahead_request* request, char* ofs)
@@ -58,25 +65,54 @@ void dump(struct readahead_request* request)
 	printf("\n");
 }
 
-int make_request(struct readahead_request* request)
+int state_path(char* token, struct readahead_request* req)
 {
-	int fd, i;
-	ssize_t ret;
+	size_t len = 0;
 
-	fd = open(request->path, O_RDONLY);
-	if (fd < 0) {
-		printf("open %s: %s\n", request->path, strerror(errno));
-		goto fail;
-	}
+	if (strcmp(token, "PATH")) return -1;
 
-	for (i = 0; i < request->size; i++) {
-		ret = readahead(fd, request->offset[i], 1);
-		if (ret)
-			printf("%s fails: %s\n", __func__, strerror(errno));
+	token = strtok(NULL, ":");
+	len = strlen(token);
+	if (req->path) {
+		free(req->path);
+		req->path = NULL;
 	}
-fail:
-	return -1;
+	req->path = malloc(len);
+	strcpy(req->path, token);
+	return 0;
 }
+
+int state_size(char* token, struct readahead_request* req)
+{
+	if (strcmp(token, "SIZE")) return -1;
+	token = strtok(NULL, ":");
+	req->size = atol(token);
+	return 0;
+}
+
+int state_off(char* token, struct readahead_request* req)
+{
+	if (strcmp(token, "OFFSET")) return -1;
+	token = strtok(NULL, ":");
+	build_request_off(req, token);
+	return 0;
+}
+
+int state_end(char* token, struct readahead_request* req)
+{
+	if (strcmp(token, "END")) return -1;
+	dump(req);
+	return 0;
+}
+
+int (*state[])(char*, struct readahead_request*) = {
+	state_path,
+	state_size,
+	state_off,
+	state_end
+};
+
+enum state_code { path, size, off, end };
 
 int main(int argc, char **argv)
 {
@@ -84,9 +120,11 @@ int main(int argc, char **argv)
 	size_t len = 0;
 	ssize_t read;
 	FILE* fp;
-	int i = 0;
+	int i = 0, ret;
 	struct readahead_request* request;
 	char* readahead_list = argv[1];
+	enum state_code cur_state;
+	int (* func_state)(char*, struct readahead_request*);
 
 	if (argc < 2) {
 		printf("Use: readahead list\n");
@@ -102,26 +140,24 @@ int main(int argc, char **argv)
 	request = malloc(sizeof(struct readahead_request));
 	memset(request, 0, sizeof(*request));
 
+	cur_state = path;
 	while ((read = getline(&line, &len, fp)) != -1) {
 		dup = strdup(line);
-		dup[strcspn(dup, "\n")] = 0;		/* remove the tailing "\n" */
+
+		/* remove the tailing "\n" */
+		dup[strcspn(dup, "\n")] = 0;
+
 		token = strtok(dup, ":");
 
-		if (strcmp(token, "PATH") == 0) {
-			token = strtok(NULL, ":");
-			build_request_path(request, token);
-		} else if (strcmp(token, "SIZE") == 0) {
-			token = strtok(NULL, ":");
-			request->size = atol(token);
-		} else if (strcmp(token, "OFFSET") == 0) {
-			token = strtok(NULL, ":");
-			build_request_off(request, token);
+		func_state = state[cur_state];
+		ret = func_state(token, request);
+		if (ret) {
+			/* any state fails, roll back to beginning */
+			cur_state = path;
 		}
 
-		if ((++i % 3) == 0) {
-			dump(request);
-			make_request(request);
-		}
+		if (++cur_state > end)
+			cur_state = path;
 	}
 
 	fclose(fp);
